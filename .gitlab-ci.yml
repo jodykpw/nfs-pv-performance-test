@@ -1,0 +1,163 @@
+.ci_job: &ci_job
+   only:
+       - <only>
+   tags:
+       - <tags>
+
+.ci_manual_job: &ci_manual_job
+    when: manual
+    <<: *ci_job
+
+stages:
+  - test
+  - deploy
+  - verify
+  - container
+  - fio_local
+  - fio_nfs
+  - delete
+
+test:
+  stage: test
+  script:
+  - kubectl get nodes
+  - echo $SUDO_PRODUCTION | sudo -S docker info
+  <<: *ci_job
+
+
+deploy-nfs-test:
+  stage: deploy
+  script:
+  - kubectl create -f deployment.yaml
+  <<: *ci_manual_job
+
+
+verify-nfs-test:
+  stage: verify
+  script:
+  - kubectl get pods
+  <<: *ci_manual_job
+
+
+delete-nfs-test:
+  stage: delete
+  script:
+  - kubectl delete -f deployment.yaml
+  <<: *ci_manual_job
+
+
+apt-get-update:
+  stage: container
+  script:
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- apt-get update
+  <<: *ci_manual_job
+
+apt-get-install-fio:
+  stage: container
+  script:
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- apt-get install fio -y
+  <<: *ci_manual_job
+
+
+4k_local:
+  stage: fio_local
+  script:
+  # Local Random Reads – Async mode – 4K block size – Direct IO – 100% Reads
+  - echo "Local Random Reads – Async mode – 4K block size – Direct IO – 100% Reads"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randread --filename=/tmp/test.fio --rw=randread --iodepth=256 --direct=1 --ioengine=libaio --bs=4k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  # Local Random Writes – Async mode – 4K block size – Direct IO – 100% Writes
+  - echo "Local Random Writes – Async mode – 4K block size – Direct IO – 100% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randwrite --filename=/tmp/test.fio --rw=randwrite --iodepth=256 --direct=1 --ioengine=libaio --bs=4k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  # Local Random Read/Writes – Async mode – 4K block size – Direct IO – 75% Reads/25% Writes
+  - echo "Local Random Read/Writes – Async mode – 4K block size – Direct IO – 75% Reads/25% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randrw --filename=/tmp/test.fio --rw=randrw --iodepth=256 --direct=1 --ioengine=libaio --bs=4k --numjobs=8 --rwmixread=75 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  <<: *ci_manual_job
+
+16k_local:
+  stage: fio_local
+  script:
+  # Local Random Reads – Async mode – 16K block size – Direct IO – 100% Reads
+  - echo "Local Random Reads – Async mode – 16K block size – Direct IO – 100% Reads"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randread --filename=/tmp/test.fio --rw=randread --iodepth=256 --direct=1 --ioengine=libaio --bs=16k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  # Local Random Writes – Async mode – 16K block size – Direct IO – 100% Writes
+  - echo "Local Random Writes – Async mode – 16K block size – Direct IO – 100% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randwrite --filename=/tmp/test.fio --rw=randwrite --iodepth=256 --direct=1 --ioengine=libaio --bs=16k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  # Local Random Read/Writes – Async mode – 16K block size – Direct IO – 75% Reads/25% Writes
+  - echo "Local Random Read/Writes – Async mode – 16K block size – Direct IO – 75% Reads/25% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randrw --filename=/tmp/test.fio --rw=randrw --iodepth=256 --direct=1 --ioengine=libaio --bs=16k --numjobs=8 --rwmixread=75 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  <<: *ci_manual_job
+
+64k_local:
+  stage: fio_local
+  script:
+  # Local Random Reads – Async mode – 64K block size – Direct IO – 100% Reads
+  - echo "Local Random Reads – Async mode – 64K block size – Direct IO – 100% Reads"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randread --filename=/tmp/test.fio --rw=randread --iodepth=256 --direct=1 --ioengine=libaio --bs=64k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  # Local Random Writes – Async mode – 64K block size – Direct IO – 100% Writes
+  - echo "Local Random Writes – Async mode – 64K block size – Direct IO – 100% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randwrite --filename=/tmp/test.fio --rw=randwrite --iodepth=256 --direct=1 --ioengine=libaio --bs=64k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  # Local Random Read/Writes – Async mode – 64K block size – Direct IO – 75% Reads/25% Writes
+  - echo "Local Random Read/Writes – Async mode – 64K block size – Direct IO – 75% Reads/25% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randrw --filename=/tmp/test.fio --rw=randrw --iodepth=256 --direct=1 --ioengine=libaio --bs=64k --numjobs=8 --rwmixread=75 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /tmp/test.fio
+  <<: *ci_manual_job
+
+
+4k_nfs:
+  stage: fio_nfs
+  script:
+  # Local Random Reads – Async mode – 4K block size – Direct IO – 100% Reads
+  - echo "Local Random Reads – Async mode – 4K block size – Direct IO – 100% Reads"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randread --filename=/usr/share/nginx/html/test.fio --rw=randread --iodepth=256 --direct=1 --ioengine=libaio --bs=4k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  # Local Random Writes – Async mode – 4K block size – Direct IO – 100% Writes
+  - echo "Local Random Writes – Async mode – 4K block size – Direct IO – 100% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randwrite --filename=/usr/share/nginx/html/test.fio --rw=randwrite --iodepth=256 --direct=1 --ioengine=libaio --bs=4k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  # Local Random Read/Writes – Async mode – 4K block size – Direct IO – 75% Reads/25% Writes
+  - echo "Local Random Read/Writes – Async mode – 4K block size – Direct IO – 75% Reads/25% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randrw --filename=/usr/share/nginx/html/test.fio --rw=randrw --iodepth=256 --direct=1 --ioengine=libaio --bs=4k --numjobs=8 --rwmixread=75 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  <<: *ci_manual_job
+
+16k_nfs:
+  stage: fio_nfs
+  script:
+  # NFS Random Reads – Async mode – 16K block size – Direct IO – 100% Reads
+  - echo "NFS Random Reads – Async mode – 16K block size – Direct IO – 100% Reads"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randread --filename=/usr/share/nginx/html/test.fio --rw=randread --iodepth=256 --direct=1 --ioengine=libaio --bs=16k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  # NFS Random Writes – Async mode – 16K block size – Direct IO – 100% Writes
+  - echo "NFS Random Writes – Async mode – 16K block size – Direct IO – 100% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randwrite --filename=/usr/share/nginx/html/test.fio --rw=randwrite --iodepth=256 --direct=1 --ioengine=libaio --bs=16k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  # NFS Random Read/Writes – Async mode – 16K block size – Direct IO – 75% Reads/25% Writes
+  - echo "NFS Random Read/Writes – Async mode – 16K block size – Direct IO – 75% Reads/25% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randrw --filename=/usr/share/nginx/html/test.fio --rw=randrw --iodepth=256 --direct=1 --ioengine=libaio --bs=16k --numjobs=8 --rwmixread=75 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  <<: *ci_manual_job
+
+64k_nfs:
+  stage: fio_nfs
+  script:
+  # NFS Random Reads – Async mode – 64K block size – Direct IO – 100% Reads
+  - echo "NFS Random Reads – Async mode – 64K block size – Direct IO – 100% Reads"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randread --filename=/usr/share/nginx/html/test.fio --rw=randread --iodepth=256 --direct=1 --ioengine=libaio --bs=64k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  # NFS Random Writes – Async mode – 64K block size – Direct IO – 100% Writes
+  - echo "NFS Random Writes – Async mode – 64K block size – Direct IO – 100% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randwrite --filename=/usr/share/nginx/html/test.fio --rw=randwrite --iodepth=256 --direct=1 --ioengine=libaio --bs=64k --numjobs=8 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  # NFS Random Read/Writes – Async mode – 64K block size – Direct IO – 75% Reads/25% Writes
+  - echo "NFS Random Read/Writes – Async mode – 64K block size – Direct IO – 75% Reads/25% Writes"
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- fio --name=randrw --filename=/usr/share/nginx/html/test.fio --rw=randrw --iodepth=256 --direct=1 --ioengine=libaio --bs=64k --numjobs=8 --rwmixread=75 --size=1G --runtime=600 --group_reporting
+  - kubectl exec -it $(kubectl get pod -l "app=nfs-demo" -o jsonpath='{.items[0].metadata.name}') -- rm -r /usr/share/nginx/html/test.fio
+  <<: *ci_manual_job

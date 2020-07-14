@@ -1,0 +1,46 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pv-claim
+spec:
+  storageClassName: "nfs-01"
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nfs-demo
+    role: nfs-frontend
+  name: nfs-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nfs-demo
+      role: nfs-frontend
+  template:
+    metadata:
+      labels:
+        app: nfs-demo
+        role: nfs-frontend
+    spec:
+      containers:
+      - name: nfs
+        image: nginx
+        ports:
+          - name: nfs
+            containerPort: 80
+        volumeMounts:
+            # name must match the volume name below
+            - name: nfs-vol
+              mountPath: "/usr/share/nginx/html"
+      volumes:
+      - name: nfs-vol
+        persistentVolumeClaim:
+          claimName: nfs-pv-claim
